@@ -1,0 +1,149 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Kiểm tra 10 địa chỉ IP</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        label, input, button {
+            display: block;
+            margin: 10px 0;
+        }
+        input {
+            padding: 8px;
+            width: 100%;
+            box-sizing: border-box;
+        }
+        button {
+            padding: 10px;
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            cursor: pointer;
+        }
+        button:hover {
+            background-color: #45a049;
+        }
+        #result {
+            margin-top: 20px;
+            padding: 15px;
+            border: 1px solid #ddd;
+            max-height: 400px;
+            overflow-y: auto;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 10px;
+        }
+        th, td {
+            border: 1px solid #ddd;
+            padding: 8px;
+            text-align: left;
+        }
+        th {
+            background-color: #f2f2f2;
+        }
+    </style>
+</head>
+<body>
+    <h2>Kiểm tra 10 địa chỉ IP</h2>
+    <label for="startIP">IP bắt đầu:</label>
+    <input type="text" id="startIP" placeholder="Ví dụ: 192.168.0.1">
+    <label for="endIP">IP kết thúc:</label>
+    <input type="text" id="endIP" placeholder="Ví dụ: 192.168.0.255">
+    <button onclick="generateAndCheckIPs()">Tạo 10 IP và kiểm tra</button>
+    <div id="result">
+        <table id="ipTable">
+            <thead>
+                <tr>
+                    <th>IP</th>
+                    <th>Quốc gia</th>
+                    <th>Thành phố</th>
+                    <th>ISP</th>
+                </tr>
+            </thead>
+            <tbody id="ipTableBody"></tbody>
+        </table>
+    </div>
+
+    <script>
+        async function generateAndCheckIPs() {
+            const startIP = document.getElementById('startIP').value;
+            const endIP = document.getElementById('endIP').value;
+            const resultTableBody = document.getElementById('ipTableBody');
+            resultTableBody.innerHTML = ''; // Xóa kết quả cũ
+
+            // Kiểm tra định dạng IP
+            if (!isValidIP(startIP) || !isValidIP(endIP)) {
+                resultTableBody.innerHTML = '<tr><td colspan="4">Vui lòng nhập địa chỉ IP hợp lệ!</td></tr>';
+                return;
+            }
+
+            // Chuyển IP thành số
+            const startNum = ipToNumber(startIP);
+            const endNum = ipToNumber(endIP);
+
+            if (startNum > endNum) {
+                resultTableBody.innerHTML = '<tr><td colspan="4">IP bắt đầu phải nhỏ hơn hoặc bằng IP kết thúc!</td></tr>';
+                return;
+            }
+
+            // Tạo danh sách 10 IP ngẫu nhiên
+            const ipCount = Math.min(10, endNum - startNum + 1); // Đảm bảo không vượt quá dải
+            const randomIPs = new Set();
+            while (randomIPs.size < ipCount) {
+                const randomIPNum = Math.floor(Math.random() * (endNum - startNum + 1)) + startNum;
+                randomIPs.add(numberToIP(randomIPNum));
+            }
+
+            // Kiểm tra từng IP bằng API ipwhois.app
+            for (const ip of randomIPs) {
+                try {
+                    const response = await fetch(`http://ipwhois.app/json/${ip}`);
+                    const data = await response.json();
+                    const row = document.createElement('tr');
+                    row.innerHTML = `
+                        <td>${ip}</td>
+                        <td>${data.success ? data.country : 'Không xác định'}</td>
+                        <td>${data.success ? (data.city || 'Không xác định') : 'Không xác định'}</td>
+                        <td>${data.success ? (data.isp || 'Không xác định') : 'Không xác định'}
+                    `;
+                    resultTableBody.appendChild(row);
+                } catch (error) {
+                    const row = document.createElement('tr');
+                    row.innerHTML = `<td>${ip}</td><td colspan="3">Lỗi khi kiểm tra: ${error.message}</td>`;
+                    resultTableBody.appendChild(row);
+                }
+            }
+        }
+
+        // Kiểm tra định dạng IP
+        function isValidIP(ip) {
+            const regex = /^(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)$/;
+            return regex.test(ip);
+        }
+
+        // Chuyển IP thành số
+        function ipToNumber(ip) {
+            return ip.split('.').reduce((acc, octet) => (acc << 8) + parseInt(octet), 0) >>> 0;
+        }
+
+        // Chuyển số thành IP
+        function numberToIP(num) {
+            return [
+                (num >>> 24) & 255,
+                (num >>> 16) & 255,
+                (num >>> 8) & 255,
+                num & 255
+            ].join('.');
+        }
+    </script>
+</body>
+</html>
